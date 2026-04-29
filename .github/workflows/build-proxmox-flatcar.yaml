@@ -1,0 +1,91 @@
+# GitHub Actions workflow for building a Proxmox Flatcar image
+#
+# Required secrets:
+# - PROXMOX_TOKEN - Proxmox API token secret value
+#
+# Required variables (set in GitHub repository or organization settings):
+# - PROXMOX_URL       - e.g. https://192.168.1.240:8006/api2/json
+# - PROXMOX_USERNAME  - e.g. capmox@pve!capi
+# - PROXMOX_BRIDGE    - e.g. vmbr0
+# - PROXMOX_STORAGE_POOL - e.g. local-lvm
+# - PROXMOX_ISO_POOL  - e.g. local
+# - PROXMOX_NODE      - e.g. pve
+
+name: Build Proxmox Flatcar Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      kubernetes_version:
+        description: 'Kubernetes version (e.g., 1.33.5)'
+        required: true
+        type: string
+      disk_format:
+        description: 'Disk format'
+        required: false
+        type: choice
+        options:
+          - raw
+          - qcow2
+        default: 'raw'
+      packer_flags:
+        description: 'Additional Packer flags'
+        required: false
+        type: string
+        default: ''
+      packer_debug:
+        description: 'Enable Packer debug logging (PACKER_LOG=1)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Proxmox Flatcar Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure Kubernetes version
+        uses: ./.github/actions/configure-k8s-version
+        with:
+          kubernetes_version: ${{ inputs.kubernetes_version }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: images/capi
+        env:
+          PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install ansible
+          make deps-proxmox
+
+      - name: Build Proxmox Flatcar image
+        working-directory: images/capi
+        env:
+          PROXMOX_URL: ${{ vars.PROXMOX_URL }}
+          PROXMOX_USERNAME: ${{ vars.PROXMOX_USERNAME }}
+          PROXMOX_TOKEN: ${{ secrets.PROXMOX_TOKEN }}
+          PROXMOX_BRIDGE: ${{ vars.PROXMOX_BRIDGE }}
+          PROXMOX_STORAGE_POOL: ${{ vars.PROXMOX_STORAGE_POOL }}
+          PROXMOX_ISO_POOL: ${{ vars.PROXMOX_ISO_POOL }}
+          PROXMOX_NODE: ${{ vars.PROXMOX_NODE }}
+          PACKER_LOG: ${{ inputs.packer_debug && '1' || '0' }}
+          KUBERNETES_VERSION: ${{ inputs.kubernetes_version }}
+          DISK_FORMAT: ${{ inputs.disk_format }}
+          EXTRA_PACKER_FLAGS: ${{ inputs.packer_flags }}
+        run: |
+          set -euo pipefail
+          K8S_SERIES="v$(echo "${KUBERNETES_VERSION}" | cut -d. -f1-2)"
+          export PACKER_FLAGS="--var disk_format=${DISK_FORMAT} --var kubernetes_rpm_version=${KUBERNETES_VERSION} --var kubernetes_semver=v${KUBERNETES_VERSION} --var kubernetes_series=${K8S_SERIES} --var kubernetes_deb_version=${KUBERNETES_VERSION}-1.1 ${EXTRA_PACKER_FLAGS}"
+          make build-proxmox-flatcar
