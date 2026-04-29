@@ -73,16 +73,16 @@ jobs:
       - name: Build Proxmox Flatcar image
         working-directory: images/capi
         env:
-          PROXMOX_URL: ${{ vars.PROXMOX_URL }}
-          PROXMOX_USERNAME: ${{ vars.PROXMOX_USERNAME }}
+          PROXMOX_URL: https://192.168.1.240:8006/api2/json
+          PROXMOX_USERNAME: capmox@pve!capi
           PROXMOX_TOKEN: ${{ secrets.PROXMOX_TOKEN }}
-          PROXMOX_BRIDGE: ${{ vars.PROXMOX_BRIDGE }}
-          PROXMOX_STORAGE_POOL: ${{ vars.PROXMOX_STORAGE_POOL }}
-          PROXMOX_ISO_POOL: ${{ vars.PROXMOX_ISO_POOL }}
-          PROXMOX_NODE: ${{ vars.PROXMOX_NODE }}
+          PROXMOX_BRIDGE: vmbr0
+          PROXMOX_STORAGE_POOL: local-lvm
+          PROXMOX_ISO_POOL: local
+          PROXMOX_NODE: pve
           PACKER_LOG: ${{ inputs.packer_debug && '1' || '0' }}
           KUBERNETES_VERSION: ${{ inputs.kubernetes_version }}
-          DISK_FORMAT: ${{ inputs.disk_format }}
+          DISK_FORMAT: raw
           EXTRA_PACKER_FLAGS: ${{ inputs.packer_flags }}
         run: |
           set -euo pipefail
