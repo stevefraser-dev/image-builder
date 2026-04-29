@@ -20,14 +20,6 @@ on:
         description: 'Kubernetes version (e.g., 1.33.5)'
         required: true
         type: string
-      disk_format:
-        description: 'Disk format'
-        required: false
-        type: choice
-        options:
-          - raw
-          - qcow2
-        default: 'raw'
       packer_flags:
         description: 'Additional Packer flags'
         required: false
@@ -45,7 +37,7 @@ permissions:
 jobs:
   build:
     name: Build Proxmox Flatcar Image
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-set
     timeout-minutes: 120
 
     steps:
